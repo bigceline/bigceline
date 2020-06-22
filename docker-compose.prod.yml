@@ -1,0 +1,7 @@
+version: "3.8"
+services:
+  bigceline:
+    image: bigceline/bigceline:latest
+    env_file: ./.env
+    command: node index.js
+    
