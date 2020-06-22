@@ -28,3 +28,4 @@ jobs:
         username: ${{secrets.BIGCELINE_DOCKERHUB_USERNAME}}
         password: ${{secrets.BIGCELINE_DOCKERHUB_ACCESS_TOKEN}}
         repository: bigceline/bigceline
+        tag_with_ref: true
