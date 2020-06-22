@@ -1,6 +1,8 @@
 const Discord = require('discord.js');
 const client = new Discord.Client();
 
+const myvar = 'hi';
+
 const BOT_TOKEN = process.env.BOT_TOKEN;
 const PLEASUREDOME_MK_THREE_GUILD_ID = process.env.PLEASUREDOME_MK_THREE_GUILD_ID;
 const PLEASUREDOME_BOT_SHIT_CHANNEL_ID = process.env.PLEASUREDOME_BOT_SHIT_CHANNEL_ID;
