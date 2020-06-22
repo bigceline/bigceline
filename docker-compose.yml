@@ -1,0 +1,10 @@
+version: "3.8"
+services:
+  bigceline:
+    build: .
+    image: bigceline
+    env_file: ./.env
+    volumes: 
+      - ./src/index.js:/bigceline/src/index.js
+    command: node index.js
+    
