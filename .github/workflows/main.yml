@@ -27,4 +27,4 @@ jobs:
       with:
         username: ${{secrets.BIGCELINE_DOCKERHUB_USERNAME}}
         password: ${{secrets.BIGCELINE_DOCKERHUB_ACCESS_TOKEN}}
-        labels: bigceline
+        repository: bigceline
