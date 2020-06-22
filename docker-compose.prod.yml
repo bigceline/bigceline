@@ -4,4 +4,9 @@ services:
     image: bigceline/bigceline:latest
     env_file: ./.env
     command: node index.js
-    
+  watchtower:
+    image: containrrr/watchtower
+    env_file: ./.env
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock 
+    command: --interval 30
