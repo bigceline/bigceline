@@ -1,13 +1,11 @@
 const Discord = require('discord.js');
 const client = new Discord.Client();
 
-const myvar = 'hi';
-
 const BOT_TOKEN = process.env.BOT_TOKEN;
 const PLEASUREDOME_MK_THREE_GUILD_ID = process.env.PLEASUREDOME_MK_THREE_GUILD_ID;
 const PLEASUREDOME_BOT_SHIT_CHANNEL_ID = process.env.PLEASUREDOME_BOT_SHIT_CHANNEL_ID;
 const BIG_CELINE_VOICE_CHANNEL_ID = process.env.BIG_CELINE_VOICE_CHANNEL_ID;
-const PATH_TO_SONG = process.env.PATH_TO_SONG;
+const PATH_TO_SONG = '../assets/thrilling_rhythm_heaven.mp3'
 
 // connect initializes channel and connection on ctx
 async function connect(ctx) {
