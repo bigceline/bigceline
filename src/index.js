@@ -1,11 +1,30 @@
 const Discord = require('discord.js');
 const client = new Discord.Client();
 
+const express = require('express');
+const server = express();
+
+const promClient = require('prom-client');
+const Counter = promClient.Counter;
+const promRegister = promClient.register;
+
+// set up Prometheus metrics collecting
+promClient.collectDefaultMetrics();
+
+// set up custom Prometheus counter
+const cmdCounter = new Counter({
+  name: 'bigceline_cmd',
+  help: 'Counts number of distinct commands',
+  labelNames: ['directive'],
+});
+
 const BOT_TOKEN = process.env.BOT_TOKEN;
 const PLEASUREDOME_MK_THREE_GUILD_ID = process.env.PLEASUREDOME_MK_THREE_GUILD_ID;
 const PLEASUREDOME_BOT_SHIT_CHANNEL_ID = process.env.PLEASUREDOME_BOT_SHIT_CHANNEL_ID;
 const BIG_CELINE_VOICE_CHANNEL_ID = process.env.BIG_CELINE_VOICE_CHANNEL_ID;
 const PATH_TO_SONG = '../assets/thrilling_rhythm_heaven.mp3'
+
+const PROMETHEUS_PORT = 6060;
 
 // connect initializes channel and connection on ctx
 async function connect(ctx) {
@@ -91,11 +110,16 @@ client.on('message', async msg => {
     return;
   }
 
+  // TODO: sanitize msg.content!
   var command = msg.content;
   const respFns = TEXT_TO_FNS[command];
   if (!respFns) {
+    cmdCounter.inc({ directive: 'unknown' });
     return;
   }
+
+  cmdCounter.inc({ directive: command });
+
   respFns.forEach(fn => fn(ctx));
 });
 
@@ -106,3 +130,15 @@ client.on('message', async msg => {
 // init the context object that will be shared across commands
 client.login(BOT_TOKEN);
 var ctx = {};
+
+server.get('/metrics', async (req, res) => {
+  try {
+    res.set('Content-Type', promRegister.contentType);
+    res.end(await promRegister.metrics());
+  } catch (ex) {
+    res.status(500).end(ex);
+  }
+});
+
+// Start express server to serve Prometheus metrics
+server.listen(PROMETHEUS_PORT);

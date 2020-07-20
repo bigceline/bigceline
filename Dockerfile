@@ -5,4 +5,4 @@ COPY ./assets /bigceline/assets
 COPY ./src /bigceline/src
 
 WORKDIR /bigceline/src
-RUN npm install 
+RUN npm install
