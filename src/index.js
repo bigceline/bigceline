@@ -1,10 +1,10 @@
-const Discord = require('discord.js');
+const rxjs = require("rxjs");
+const Discord = require("discord.js");
 const client = new Discord.Client();
-
-const express = require('express');
+const express = require("express");
 const server = express();
 
-const promClient = require('prom-client');
+const promClient = require("prom-client");
 const Counter = promClient.Counter;
 const promRegister = promClient.register;
 
@@ -13,27 +13,38 @@ promClient.collectDefaultMetrics();
 
 // set up custom Prometheus counter
 const cmdCounter = new Counter({
-  name: 'bigceline_cmd',
-  help: 'Counts number of distinct commands',
-  labelNames: ['directive'],
+  name: "bigceline_cmd",
+  help: "Counts number of distinct commands",
+  labelNames: ["directive"],
 });
 
 const BOT_TOKEN = process.env.BOT_TOKEN;
-const PLEASUREDOME_MK_THREE_GUILD_ID = process.env.PLEASUREDOME_MK_THREE_GUILD_ID;
-const PLEASUREDOME_BOT_SHIT_CHANNEL_ID = process.env.PLEASUREDOME_BOT_SHIT_CHANNEL_ID;
+const PLEASUREDOME_MK_THREE_GUILD_ID =
+  process.env.PLEASUREDOME_MK_THREE_GUILD_ID;
+const PLEASUREDOME_BOT_SHIT_CHANNEL_ID =
+  process.env.PLEASUREDOME_BOT_SHIT_CHANNEL_ID;
 const BIG_CELINE_VOICE_CHANNEL_ID = process.env.BIG_CELINE_VOICE_CHANNEL_ID;
-const PATH_TO_SONG = '../assets/thrilling_rhythm_heaven.mp3'
+const PATH_TO_SONG = "../assets/thrilling_rhythm_heaven.mp3";
 
 const PROMETHEUS_PORT = 6060;
 
+let state = {
+  channel: null,
+  connection: null,
+  dispatcher: null,
+};
+const stateSubscriber = new rxjs.Subject();
+stateSubscriber.subscribe((newState) => {
+  state = newState;
+});
+
 // connect initializes channel and connection on ctx
-async function connect(ctx) {
+async function connect() {
   try {
     const channel = await client.channels.fetch(BIG_CELINE_VOICE_CHANNEL_ID);
     const connection = await channel.join();
 
-    ctx.channel = channel;
-    ctx.connection = connection;
+    stateSubscriber.next({ ...state, channel, connection });
   } catch (e) {
     console.error(e);
     process.exit(1);
@@ -42,22 +53,30 @@ async function connect(ctx) {
 
 // play reads or initializes dispatcher on ctx
 // play clears dispatcher from ctx
-async function play(ctx) {
+async function play() {
   try {
-    if (ctx.dispatcher) {
-      console.log('song already playing - resuming\n');
-      ctx.dispatcher.resume();
+    if (state.dispatcher) {
+      console.log("song already playing - resuming\n");
+      state.dispatcher.resume();
       return;
     }
 
+    let connection;
+
     // initialize connection and dispatcher if not already present
-    if (!ctx.connection) {
-      await connect(ctx);
-      connection = ctx.connection;
+    if (!state.connection) {
+      await connect();
+      connection = state.connection;
     }
-    ctx.dispatcher = await connection.play(PATH_TO_SONG);
-    ctx.dispatcher.on('finish', async () => {
-      await stop(ctx);
+
+    const dispatcher = await connection.play(PATH_TO_SONG);
+    dispatcher.on("finish", async () => {
+      await stop();
+    });
+
+    stateSubscriber.next({
+      ...state,
+      dispatcher,
     });
   } catch (e) {
     console.error(e);
@@ -67,12 +86,12 @@ async function play(ctx) {
 
 // pause reads dispatcher from ctx
 // pause does not remove anything from ctx
-async function pause(ctx) {
+async function pause() {
   try {
-    if (!ctx.dispatcher) {
+    if (!state.dispatcher) {
       return;
     }
-    await ctx.dispatcher.pause();
+    await state.dispatcher.pause();
   } catch (e) {
     console.error(e);
     process.exit(1);
@@ -80,47 +99,50 @@ async function pause(ctx) {
 }
 
 // stop tears down dispatchers and connections and deletes state from context
-async function stop(ctx) {
+async function stop() {
   try {
-    await ctx.dispatcher.destroy();
-    await ctx.connection.disconnect();
+    await state.dispatcher.destroy();
+    await state.connection.disconnect();
 
-    delete ctx.dispatcher;
-    delete ctx.connection;
-    delete ctx.channel;
+    stateSubscriber.next({
+      dispatcher: null,
+      connection: null,
+      channel: null,
+    });
   } catch (e) {
     console.error(e);
     process.exit(1);
   }
 }
 
-client.on('ready', async () => {
-  console.log('client just logged in successfully!\n');
+var commandSubscriber = new rxjs.Subject();
+
+commandSubscriber.subscribe(async (command) => {
+  switch (command) {
+    case "play_magic_man":
+      cmdCounter.inc({ directive: command });
+      await play();
+      break;
+    case "pause_magic_man":
+      cmdCounter.inc({ directive: command });
+      await pause();
+      break;
+    case "stop_magic_man":
+      cmdCounter.inc({ directive: command });
+      await stop();
+      break;
+    default:
+      cmdCounter.inc({ directive: "unknown" });
+      break;
+  }
 });
 
-const TEXT_TO_FNS = {
-  'play_magic_man': [play],
-  'pause_magic_man': [pause],
-  'stop_magic_man': [stop]
-};
+client.on("ready", async () => {
+  console.log("client just logged in successfully!\n");
+});
 
-client.on('message', async msg => {
-  // restrict celine to listening only on TextChannel #bot-shit
-  if (msg.channel.id !== PLEASUREDOME_BOT_SHIT_CHANNEL_ID) {
-    return;
-  }
-
-  // TODO: sanitize msg.content!
-  var command = msg.content;
-  const respFns = TEXT_TO_FNS[command];
-  if (!respFns) {
-    cmdCounter.inc({ directive: 'unknown' });
-    return;
-  }
-
-  cmdCounter.inc({ directive: command });
-
-  respFns.forEach(fn => fn(ctx));
+client.on("message", async (msg) => {
+  commandSubscriber.next(msg.content);
 });
 
 // TODO: regenerate this and figure out a better way to inject this later
@@ -129,11 +151,10 @@ client.on('message', async msg => {
 //       less is
 // init the context object that will be shared across commands
 client.login(BOT_TOKEN);
-var ctx = {};
 
-server.get('/metrics', async (req, res) => {
+server.get("/metrics", async (req, res) => {
   try {
-    res.set('Content-Type', promRegister.contentType);
+    res.set("Content-Type", promRegister.contentType);
     res.end(await promRegister.metrics());
   } catch (ex) {
     res.status(500).end(ex);
